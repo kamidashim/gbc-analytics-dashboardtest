@@ -1,0 +1,24 @@
+{
+  "name": "gbc-analytics-dashboard",
+  "version": "1.0.0",
+  "description": "Mini orders dashboard: RetailCRM → Supabase → Vercel + Telegram bot",
+  "scripts": {
+    "upload": "node scripts/upload_to_retailcrm.js",
+    "sync": "node scripts/sync_to_supabase.js",
+    "bot:poll": "node telegram-bot/webhook.js --poll",
+    "dev": "npx serve dashboard"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "retailcrm",
+    "supabase",
+    "dashboard",
+    "telegram"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

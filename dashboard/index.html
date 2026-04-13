@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GBC Analytics — Orders Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080c10;
+  --surface:#0e1420;
+  --surface2:#141c2c;
+  --border:#1e2d45;
+  --accent:#00e5ff;
+  --accent2:#ff6b35;
+  --accent3:#a78bfa;
+  --green:#22d3a4;
+  --text:#e8edf5;
+  --muted:#5a6a85;
+  --font-head:'Unbounded',sans-serif;
+  --font-mono:'DM Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-mono);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* noise overlay */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.4;
+}
+
+/* grid lines */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;z-index:0;opacity:.25;
+}
+
+.wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:24px 20px}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 0 32px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:32px;
+}
+.logo{
+  font-family:var(--font-head);
+  font-size:clamp(16px,2.5vw,22px);
+  font-weight:800;
+  letter-spacing:-.02em;
+  color:var(--text);
+}
+.logo span{color:var(--accent)}
+.live-badge{
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--green);
+  padding:6px 14px;
+  border:1px solid var(--green);
+  border-radius:999px;
+}
+.live-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--green);
+  animation:pulse 1.5s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+/* ── KPI CARDS ── */
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;
+  margin-bottom:32px;
+}
+.kpi{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:24px 20px;
+  position:relative;
+  overflow:hidden;
+  transition:transform .2s,border-color .2s;
+}
+.kpi:hover{transform:translateY(-3px);border-color:var(--accent)}
+.kpi::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:2px;
+}
+.kpi:nth-child(1)::before{background:linear-gradient(90deg,var(--accent),transparent)}
+.kpi:nth-child(2)::before{background:linear-gradient(90deg,var(--green),transparent)}
+.kpi:nth-child(3)::before{background:linear-gradient(90deg,var(--accent2),transparent)}
+.kpi:nth-child(4)::before{background:linear-gradient(90deg,var(--accent3),transparent)}
+.kpi-label{
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:12px;
+}
+.kpi-val{
+  font-family:var(--font-head);
+  font-size:clamp(24px,3vw,32px);
+  font-weight:800;
+  line-height:1;
+  margin-bottom:8px;
+}
+.kpi:nth-child(1) .kpi-val{color:var(--accent)}
+.kpi:nth-child(2) .kpi-val{color:var(--green)}
+.kpi:nth-child(3) .kpi-val{color:var(--accent2)}
+.kpi:nth-child(4) .kpi-val{color:var(--accent3)}
+.kpi-sub{font-size:11px;color:var(--muted)}
+.kpi-badge{
+  position:absolute;top:16px;right:16px;
+  font-size:9px;letter-spacing:.1em;
+  padding:4px 8px;border-radius:4px;
+  background:rgba(34,211,164,.1);color:var(--green);
+}
+
+/* ── CHARTS ROW ── */
+.charts-row{
+  display:grid;
+  grid-template-columns:1fr 340px;
+  gap:16px;
+  margin-bottom:16px;
+}
+@media(max-width:900px){.charts-row{grid-template-columns:1fr}}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:24px;
+}
+.card-title{
+  font-family:var(--font-head);
+  font-size:13px;font-weight:600;
+  letter-spacing:.03em;
+  margin-bottom:20px;
+  color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.card-title::before{
+  content:'';width:4px;height:16px;
+  background:var(--accent);
+  border-radius:2px;
+  display:block;
+}
+
+/* ── BOTTOM ROW ── */
+.bottom-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:16px;
+  margin-bottom:32px;
+}
+@media(max-width:900px){.bottom-row{grid-template-columns:1fr}}
+
+/* pie wrap */
+.pie-wrap{
+  position:relative;
+  max-width:220px;
+  margin:0 auto;
+}
+
+/* ── TABLE ── */
+.table-section{margin-bottom:40px}
+.table-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;
+}
+.table-filter{
+  display:flex;gap:8px;
+}
+.filter-btn{
+  font-family:var(--font-mono);
+  font-size:11px;letter-spacing:.08em;
+  padding:6px 14px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:all .2s;
+}
+.filter-btn.active,.filter-btn:hover{
+  background:var(--accent);
+  color:var(--bg);
+  border-color:var(--accent);
+}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);padding:12px 16px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+}
+td{
+  padding:14px 16px;
+  font-size:13px;
+  border-bottom:1px solid rgba(30,45,69,.5);
+  transition:background .15s;
+}
+tr:hover td{background:var(--surface2)}
+.status-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:6px;
+}
+.status-new{background:rgba(0,229,255,.1);color:var(--accent)}
+.status-processing{background:rgba(167,139,250,.1);color:var(--accent3)}
+.status-done{background:rgba(34,211,164,.1);color:var(--green)}
+.high-value{color:var(--accent2);font-weight:500}
+.src-tag{
+  font-size:10px;padding:3px 8px;border-radius:4px;
+  background:var(--surface2);color:var(--muted);
+}
+.src-instagram{background:rgba(255,107,53,.08);color:var(--accent2)}
+.src-google{background:rgba(0,229,255,.08);color:var(--accent)}
+.src-tiktok{background:rgba(167,139,250,.08);color:var(--accent3)}
+.src-direct{background:rgba(34,211,164,.08);color:var(--green)}
+
+/* bar list */
+.bar-list{display:flex;flex-direction:column;gap:12px}
+.bar-item{}
+.bar-info{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}
+.bar-name{color:var(--text)}
+.bar-num{color:var(--muted)}
+.bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--border);
+  padding:24px 0;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:var(--muted);
+}
+
+/* animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.kpi{animation:fadeUp .4s both}
+.kpi:nth-child(1){animation-delay:.05s}
+.kpi:nth-child(2){animation-delay:.1s}
+.kpi:nth-child(3){animation-delay:.15s}
+.kpi:nth-child(4){animation-delay:.2s}
+.card{animation:fadeUp .4s .25s both}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">GBC<span>.</span>Analytics</div>
+    <div id="ts" style="font-size:11px;color:var(--muted)"></div>
+    <div class="live-badge"><div class="live-dot"></div>Live Data</div>
+  </header>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Всего заказов</div>
+      <div class="kpi-val" id="kpi-orders">50</div>
+      <div class="kpi-sub">за последние 60 дней</div>
+      <div class="kpi-badge">+100%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Выручка</div>
+      <div class="kpi-val" id="kpi-revenue">2 451 000 ₸</div>
+      <div class="kpi-sub">средний чек 49 020 ₸</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Крупные заказы &gt;50k</div>
+      <div class="kpi-val" id="kpi-big">24</div>
+      <div class="kpi-sub">48% от всех заказов</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Топ город</div>
+      <div class="kpi-val" id="kpi-city">Алматы</div>
+      <div class="kpi-sub">82% заказов</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="charts-row">
+    <div class="card">
+      <div class="card-title">Динамика заказов по дням</div>
+      <canvas id="chartLine" height="200"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Источники трафика</div>
+      <div class="pie-wrap">
+        <canvas id="chartPie"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-row">
+    <div class="card">
+      <div class="card-title">Города</div>
+      <div class="bar-list" id="cityBars"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Выручка по дням</div>
+      <canvas id="chartBar" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Топ товары</div>
+      <div class="bar-list" id="productBars"></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-section card">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Последние заказы</div>
+      <div class="table-filter">
+        <button class="filter-btn active" onclick="filterTable('all',this)">Все</button>
+        <button class="filter-btn" onclick="filterTable('big',this)">&gt;50k ₸</button>
+        <button class="filter-btn" onclick="filterTable('instagram',this)">Instagram</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Клиент</th>
+            <th>Город</th>
+            <th>Источник</th>
+            <th>Статус</th>
+            <th style="text-align:right">Сумма</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENV SETUP NOTICE -->
+  <div class="card" style="margin-bottom:32px;border-color:rgba(167,139,250,.3)">
+    <div class="card-title" style="color:var(--accent3)">⚙️ Подключение к Supabase</div>
+    <p style="font-size:12px;color:var(--muted);line-height:1.8">
+      Дашборд работает с mock данными. Для подключения к реальному Supabase:<br/>
+      1. Задай переменные в <code style="color:var(--accent)">.env.local</code>: <code style="color:var(--accent)">NEXT_PUBLIC_SUPABASE_URL</code> и <code style="color:var(--accent)">NEXT_PUBLIC_SUPABASE_ANON_KEY</code><br/>
+      2. Запусти <code style="color:var(--accent)">node scripts/sync_to_supabase.js</code> для первичной загрузки данных<br/>
+      3. Раскомментируй функцию <code style="color:var(--accent)">loadFromSupabase()</code> в <code style="color:var(--accent)">dashboard/app.js</code>
+    </p>
+  </div>
+
+  <footer>
+    <span>GBC Analytics Dashboard · Built with Claude Code</span>
+    <span id="data-source">📦 50 orders · mock data</span>
+  </footer>
+
+</div>
+
+<script>
+// ────────────────────────────────────────────
+// DATA — embedded mock (replace with Supabase fetch in production)
+// ────────────────────────────────────────────
+const ORDERS = [{"firstName":"Айгуль","lastName":"Касымова","phone":"+77001234501","email":"aigul.kasymova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"ул. Абая 150, кв 12"}},"customFields":{"utm_source":"instagram"},"total":15000,"createdAt":"2024-12-10T14:00:00"},{"firstName":"Дина","lastName":"Жуматова","phone":"+77012345602","email":"dina.zhumatova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Самал-2, д. 44, кв 78"}},"customFields":{"utm_source":"google"},"total":40000,"createdAt":"2024-12-08T10:00:00"},{"firstName":"Нургуль","lastName":"Ахметова","phone":"+77023456703","email":"nurgul.akhmetova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000}],"delivery":{"address":{"city":"Астана","text":"пр. Туран 45, кв 3"}},"customFields":{"utm_source":"instagram"},"total":58000,"createdAt":"2024-12-15T18:00:00"},{"firstName":"Малика","lastName":"Сейткали","phone":"+77034567804","email":"malika.seitkali@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":3,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"ул. Достык 89, кв 5"}},"customFields":{"utm_source":"tiktok"},"total":45000,"createdAt":"2024-12-20T09:00:00"},{"firstName":"Жанна","lastName":"Бекова","phone":"+77045678905","email":"zhanna.bekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":2,"initialPrice":28000},{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Алтай, д. 3, кв 22"}},"customFields":{"utm_source":"instagram"},"total":71000,"createdAt":"2024-12-22T16:00:00"},{"firstName":"Айнур","lastName":"Мусина","phone":"+77056789006","email":"ainur.musina@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующие шорты Nova Shape","quantity":2,"initialPrice":12000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"ул. Сейфуллина 120, кв 8"}},"customFields":{"utm_source":"direct"},"total":42000,"createdAt":"2024-12-05T11:00:00"},{"firstName":"Гульнара","lastName":"Токова","phone":"+77067890107","email":"gulnara.tokova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000},{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Орбита-2, д. 15, кв 11"}},"customFields":{"utm_source":"google"},"total":59000,"createdAt":"2024-12-28T13:00:00"},{"firstName":"Самал","lastName":"Жаксыбекова","phone":"+77078901208","email":"samal.zhaksybekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Астана","text":"пр. Республики 55, кв 14"}},"customFields":{"utm_source":"instagram"},"total":58000,"createdAt":"2024-12-30T20:00:00"},{"firstName":"Асель","lastName":"Калиева","phone":"+77089012309","email":"asel.kalieva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000}],"delivery":{"address":{"city":"Алматы","text":"ул. Тимирязева 42, кв 7"}},"customFields":{"utm_source":"referral"},"total":52000,"createdAt":"2025-01-02T15:00:00"},{"firstName":"Зарина","lastName":"Есенова","phone":"+77090123410","email":"zarina.yesenova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":3,"initialPrice":28000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Коктем-3, д. 8, кв 19"}},"customFields":{"utm_source":"instagram"},"total":96000,"createdAt":"2025-01-05T10:00:00"},{"firstName":"Ботагоз","lastName":"Нурланова","phone":"+77001234511","email":"botagoz.nurlanova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":3,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"ул. Навои 58, кв 2"}},"customFields":{"utm_source":"google"},"total":54000,"createdAt":"2025-01-07T09:00:00"},{"firstName":"Динара","lastName":"Абенова","phone":"+77012345612","email":"dinara.abenova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Шымкент","text":"ул. Байтурсынова 11, кв 33"}},"customFields":{"utm_source":"tiktok"},"total":27000,"createdAt":"2025-01-09T14:00:00"},{"firstName":"Мадина","lastName":"Сейдалина","phone":"+77023456713","email":"madina.seidалина@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":3,"initialPrice":22000},{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Думан-2, д. 22, кв 4"}},"customFields":{"utm_source":"instagram"},"total":94000,"createdAt":"2025-01-10T17:00:00"},{"firstName":"Лейла","lastName":"Омарова","phone":"+77034567814","email":"leila.omarova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000}],"delivery":{"address":{"city":"Алматы","text":"ул. Розыбакиева 247, кв 9"}},"customFields":{"utm_source":"direct"},"total":50000,"createdAt":"2025-01-12T11:00:00"},{"firstName":"Гүлім","lastName":"Кенжебаева","phone":"+77045678915","email":"gulim.kenzhebaeva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующие шорты Nova Shape","quantity":3,"initialPrice":12000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Жетысу-3, д. 5, кв 17"}},"customFields":{"utm_source":"referral"},"total":72000,"createdAt":"2025-01-14T16:00:00"},{"firstName":"Меруерт","lastName":"Байжанова","phone":"+77056789016","email":"meruert.baizhanova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":4,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"ул. Ленина 80, кв 3"}},"customFields":{"utm_source":"google"},"total":60000,"createdAt":"2025-01-16T13:00:00"},{"firstName":"Толқын","lastName":"Жарылқасынова","phone":"+77067890117","email":"tolkyn.zharylkasyn@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Астана","text":"ул. Кунаева 12, кв 28"}},"customFields":{"utm_source":"instagram"},"total":64000,"createdAt":"2025-01-18T19:00:00"},{"firstName":"Сандугаш","lastName":"Нурмагамбетова","phone":"+77078901218","email":"sandugash.nurm@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":2,"initialPrice":28000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Мамыр-4, д. 19, кв 6"}},"customFields":{"utm_source":"direct"},"total":92000,"createdAt":"2025-01-20T10:00:00"},{"firstName":"Перизат","lastName":"Сатыбалдиева","phone":"+77089012319","email":"perizat.satybald@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"ул. Гоголя 15, кв 12"}},"customFields":{"utm_source":"tiktok"},"total":42000,"createdAt":"2025-01-22T14:00:00"},{"firstName":"Куралай","lastName":"Жаксыбаева","phone":"+77090123420","email":"kuralay.zhaksyb@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":3,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Саяхат, д. 7, кв 25"}},"customFields":{"utm_source":"instagram"},"total":98000,"createdAt":"2025-01-24T18:00:00"},{"firstName":"Назерке","lastName":"Дюсенова","phone":"+77001234521","email":"nazerke.dyusenova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Астана","text":"пр. Победы 44, кв 1"}},"customFields":{"utm_source":"google"},"total":55000,"createdAt":"2025-01-26T09:00:00"},{"firstName":"Айжан","lastName":"Серикова","phone":"+77012345622","email":"aizhan.serikova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000}],"delivery":{"address":{"city":"Алматы","text":"ул. Карасай батыра 88, кв 5"}},"customFields":{"utm_source":"referral"},"total":58000,"createdAt":"2025-01-28T16:00:00"},{"firstName":"Шолпан","lastName":"Бектурова","phone":"+77023456723","email":"sholpan.bekturova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Шугыла, д. 44, кв 3"}},"customFields":{"utm_source":"instagram"},"total":15000,"createdAt":"2025-01-30T11:00:00"},{"firstName":"Бибігүл","lastName":"Жаксыбекова","phone":"+77034567824","email":"bibigul.zha@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующие шорты Nova Shape","quantity":4,"initialPrice":12000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000}],"delivery":{"address":{"city":"Алматы","text":"ул. Нурмакова 55, кв 8"}},"customFields":{"utm_source":"direct"},"total":70000,"createdAt":"2025-02-01T13:00:00"},{"firstName":"Зейнеп","lastName":"Касабекова","phone":"+77045678925","email":"zeynep.kasabekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":2,"initialPrice":28000},{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Алатау, д. 11, кв 19"}},"customFields":{"utm_source":"google"},"total":86000,"createdAt":"2025-02-03T17:00:00"},{"firstName":"Рысгуль","lastName":"Сейтжанова","phone":"+77056789026","email":"rysgul.seitzhanova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000},{"productName":"Корректирующие шорты Nova Shape","quantity":2,"initialPrice":12000}],"delivery":{"address":{"city":"Шымкент","text":"пр. Аль-Фараби 99, кв 7"}},"customFields":{"utm_source":"tiktok"},"total":42000,"createdAt":"2025-02-05T10:00:00"},{"firstName":"Ұлбосын","lastName":"Муратова","phone":"+77067890127","email":"ulbosyn.muratova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":3,"initialPrice":22000},{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000}],"delivery":{"address":{"city":"Алматы","text":"ул. Богенбай батыра 211, кв 4"}},"customFields":{"utm_source":"instagram"},"total":94000,"createdAt":"2025-02-07T14:00:00"},{"firstName":"Нәзім","lastName":"Серикқызы","phone":"+77078901228","email":"nazim.seri@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Таугуль-2, д. 8, кв 11"}},"customFields":{"utm_source":"referral"},"total":48000,"createdAt":"2025-02-09T09:00:00"},{"firstName":"Жұлдыз","lastName":"Бейсенова","phone":"+77089012329","email":"zhuldyz.beisenova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующие шорты Nova Shape","quantity":3,"initialPrice":12000},{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000}],"delivery":{"address":{"city":"Алматы","text":"ул. Жибек жолы 12, кв 2"}},"customFields":{"utm_source":"google"},"total":80000,"createdAt":"2025-02-11T16:00:00"},{"firstName":"Ақмарал","lastName":"Тоқсанбаева","phone":"+77090123430","email":"akmaral.toksanbayeva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Корректирующее бельё Nova Classic","quantity":3,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"пр. Суюнбая 55, кв 6"}},"customFields":{"utm_source":"instagram"},"total":73000,"createdAt":"2025-02-13T13:00:00"},{"firstName":"Гаухар","lastName":"Нурмухамедова","phone":"+77001234531","email":"gaukhar.nurmukh@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":4,"initialPrice":18000}],"delivery":{"address":{"city":"Астана","text":"ул. Сарыарка 77, кв 20"}},"customFields":{"utm_source":"direct"},"total":72000,"createdAt":"2025-02-15T19:00:00"},{"firstName":"Мөлдір","lastName":"Сейтқалиева","phone":"+77012345632","email":"moldir.seitkalieva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Корректирующие шорты Nova Shape","quantity":2,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Айнабулак-3, д. 3, кв 15"}},"customFields":{"utm_source":"referral"},"total":61000,"createdAt":"2025-02-17T10:00:00"},{"firstName":"Жансая","lastName":"Ергалиева","phone":"+77023456733","email":"zhansaya.ergalieva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":3,"initialPrice":28000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"ул. Масанчи 98, кв 4"}},"customFields":{"utm_source":"google"},"total":102000,"createdAt":"2025-02-19T14:00:00"},{"firstName":"Арайлым","lastName":"Мұхамеджан","phone":"+77034567834","email":"arailym.mukhamedjan@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Тастак-2, д. 14, кв 9"}},"customFields":{"utm_source":"tiktok"},"total":34000,"createdAt":"2025-02-21T09:00:00"},{"firstName":"Айсұлу","lastName":"Дюсебаева","phone":"+77045678935","email":"aisulu.dyusebaeva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":1,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"ул. Сатпаева 22, кв 3"}},"customFields":{"utm_source":"instagram"},"total":76000,"createdAt":"2025-02-23T17:00:00"},{"firstName":"Ғалия","lastName":"Жаксыбекова","phone":"+77056789036","email":"galia.zhaksybekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующие шорты Nova Shape","quantity":5,"initialPrice":12000}],"delivery":{"address":{"city":"Актау","text":"мкр. 31, д. 5, кв 7"}},"customFields":{"utm_source":"direct"},"total":60000,"createdAt":"2025-02-25T11:00:00"},{"firstName":"Бақытгүл","lastName":"Рахымбекова","phone":"+77067890137","email":"bakytgul.rakhymbek@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"пр. Достык 136, кв 11"}},"customFields":{"utm_source":"instagram"},"total":84000,"createdAt":"2025-02-27T16:00:00"},{"firstName":"Қарлығаш","lastName":"Оразова","phone":"+77078901238","email":"karlygash.orazova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":3,"initialPrice":15000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Кенсай-2, д. 2, кв 6"}},"customFields":{"utm_source":"google"},"total":81000,"createdAt":"2025-03-01T13:00:00"},{"firstName":"Нурия","lastName":"Байтасова","phone":"+77089012339","email":"nuria.baitasova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Корректирующие шорты Nova Shape","quantity":2,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"ул. Байзакова 280, кв 2"}},"customFields":{"utm_source":"referral"},"total":46000,"createdAt":"2025-03-03T10:00:00"},{"firstName":"Зауреш","lastName":"Ермекова","phone":"+77090123440","email":"zauresh.yermekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":2,"initialPrice":28000},{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Горный Гигант, д. 8, кв 14"}},"customFields":{"utm_source":"instagram"},"total":71000,"createdAt":"2025-03-05T19:00:00"},{"firstName":"Дильнора","lastName":"Хасанова","phone":"+77001234541","email":"dilnora.khasanova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":3,"initialPrice":18000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"ул. Чайковского 14, кв 8"}},"customFields":{"utm_source":"tiktok"},"total":66000,"createdAt":"2025-03-07T09:00:00"},{"firstName":"Маржан","lastName":"Қасымханова","phone":"+77012345642","email":"marzhan.kasymkhanova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000},{"productName":"Бюстье корректирующее Nova Lift","quantity":3,"initialPrice":22000}],"delivery":{"address":{"city":"Астана","text":"ул. Иманова 34, кв 5"}},"customFields":{"utm_source":"google"},"total":81000,"createdAt":"2025-03-09T16:00:00"},{"firstName":"Айгерім","lastName":"Тлепова","phone":"+77023456743","email":"aigerim.tlepova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Корректирующие шорты Nova Shape","quantity":3,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Нурлы Жол, д. 18, кв 3"}},"customFields":{"utm_source":"direct"},"total":64000,"createdAt":"2025-03-11T13:00:00"},{"firstName":"Гүлшат","lastName":"Бекмурзина","phone":"+77034567844","email":"gulshat.bekmurzina@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000},{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000}],"delivery":{"address":{"city":"Алматы","text":"ул. Алтынсарина 45, кв 7"}},"customFields":{"utm_source":"instagram"},"total":80000,"createdAt":"2025-03-13T10:00:00"},{"firstName":"Сымбат","lastName":"Ибрагимова","phone":"+77045678945","email":"symbat.ibragimova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":4,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Дорожник, д. 3, кв 9"}},"customFields":{"utm_source":"referral"},"total":72000,"createdAt":"2025-03-15T14:00:00"},{"firstName":"Ажар","lastName":"Кусаинова","phone":"+77056789046","email":"azhar.kusainova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Корректирующее бельё Nova Classic","quantity":1,"initialPrice":15000}],"delivery":{"address":{"city":"Алматы","text":"ул. Панфилова 97, кв 14"}},"customFields":{"utm_source":"google"},"total":65000,"createdAt":"2025-03-17T18:00:00"},{"firstName":"Балжан","lastName":"Жаксыбекова","phone":"+77067890147","email":"balzhan.zhaksybekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающие леггинсы Nova Fit","quantity":2,"initialPrice":18000},{"productName":"Корректирующие шорты Nova Shape","quantity":4,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Самал-3, д. 7, кв 2"}},"customFields":{"utm_source":"instagram"},"total":84000,"createdAt":"2025-03-19T09:00:00"},{"firstName":"Дариға","lastName":"Мусаева","phone":"+77078901248","email":"dariga.musaeva@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Бюстье корректирующее Nova Lift","quantity":1,"initialPrice":22000},{"productName":"Утягивающий комбидресс Nova Slim","quantity":1,"initialPrice":28000}],"delivery":{"address":{"city":"Алматы","text":"ул. Желтоксан 140, кв 11"}},"customFields":{"utm_source":"direct"},"total":80000,"createdAt":"2025-03-21T16:00:00"},{"firstName":"Еркежан","lastName":"Байтурова","phone":"+77089012349","email":"yerkezhan.baiturova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Утягивающий комбидресс Nova Slim","quantity":3,"initialPrice":28000},{"productName":"Корректирующие шорты Nova Shape","quantity":2,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"мкр. Жулдыз-2, д. 12, кв 5"}},"customFields":{"utm_source":"instagram"},"total":108000,"createdAt":"2025-03-23T13:00:00"},{"firstName":"Ұлпан","lastName":"Жаксыбекова","phone":"+77090123450","email":"ulpan.zhaksybekova@example.com","orderType":"eshop-individual","orderMethod":"shopping-cart","status":"new","items":[{"productName":"Бюстье корректирующее Nova Lift","quantity":2,"initialPrice":22000},{"productName":"Корректирующее бельё Nova Classic","quantity":2,"initialPrice":15000},{"productName":"Корректирующие шорты Nova Shape","quantity":1,"initialPrice":12000}],"delivery":{"address":{"city":"Алматы","text":"ул. Фурманова 200, кв 8"}},"customFields":{"utm_source":"google"},"total":98000,"createdAt":"2025-03-25T10:00:00"}];
+
+// ── compute stats ──
+const total = ORDERS.reduce((s,o)=>s+o.total,0);
+const avg = Math.round(total/ORDERS.length);
+const big = ORDERS.filter(o=>o.total>50000).length;
+
+// date display
+document.getElementById('ts').textContent = new Date().toLocaleString('ru-KZ',{dateStyle:'medium',timeStyle:'short'});
+
+// ── helper: group by date ──
+function groupByDate(orders){
+  const map={};
+  orders.forEach(o=>{
+    const d=o.createdAt.slice(0,10);
+    map[d]=(map[d]||0)+1;
+  });
+  return map;
+}
+function revenueByDate(orders){
+  const map={};
+  orders.forEach(o=>{
+    const d=o.createdAt.slice(0,10);
+    map[d]=(map[d]||0)+o.total;
+  });
+  return map;
+}
+
+const byDate=groupByDate(ORDERS);
+const revByDate=revenueByDate(ORDERS);
+const dates=Object.keys(byDate).sort();
+
+// ── LINE CHART ──
+const ctxL=document.getElementById('chartLine').getContext('2d');
+new Chart(ctxL,{
+  type:'line',
+  data:{
+    labels:dates.map(d=>d.slice(5)),
+    datasets:[{
+      data:dates.map(d=>byDate[d]),
+      borderColor:'#00e5ff',
+      backgroundColor:'rgba(0,229,255,.08)',
+      borderWidth:2,
+      pointBackgroundColor:'#00e5ff',
+      pointRadius:3,
+      fill:true,
+      tension:.4
+    }]
+  },
+  options:{
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(30,45,69,.5)'},ticks:{color:'#5a6a85',font:{family:'DM Mono',size:10}}},
+      y:{grid:{color:'rgba(30,45,69,.5)'},ticks:{color:'#5a6a85',font:{family:'DM Mono',size:10}}}
+    }
+  }
+});
+
+// ── PIE CHART ──
+const srcCount={};
+ORDERS.forEach(o=>{const s=o.customFields.utm_source;srcCount[s]=(srcCount[s]||0)+1});
+const ctxP=document.getElementById('chartPie').getContext('2d');
+new Chart(ctxP,{
+  type:'doughnut',
+  data:{
+    labels:Object.keys(srcCount),
+    datasets:[{
+      data:Object.values(srcCount),
+      backgroundColor:['#ff6b35','#00e5ff','#a78bfa','#22d3a4','#fbbf24'],
+      borderWidth:0,
+      hoverOffset:6
+    }]
+  },
+  options:{
+    cutout:'65%',
+    plugins:{
+      legend:{
+        position:'bottom',
+        labels:{color:'#5a6a85',font:{family:'DM Mono',size:10},padding:12,boxWidth:10}
+      }
+    }
+  }
+});
+
+// ── BAR CHART (revenue by date) ──
+const ctxB=document.getElementById('chartBar').getContext('2d');
+new Chart(ctxB,{
+  type:'bar',
+  data:{
+    labels:dates.map(d=>d.slice(5)),
+    datasets:[{
+      data:dates.map(d=>(revByDate[d]||0)/1000),
+      backgroundColor:'rgba(167,139,250,.7)',
+      borderRadius:4,
+      borderSkipped:false
+    }]
+  },
+  options:{
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(30,45,69,.5)'},ticks:{color:'#5a6a85',font:{family:'DM Mono',size:9}}},
+      y:{
+        grid:{color:'rgba(30,45,69,.5)'},
+        ticks:{color:'#5a6a85',font:{family:'DM Mono',size:9},callback:v=>v+'k ₸'}
+      }
+    }
+  }
+});
+
+// ── CITY BARS ──
+const cityCount={};
+ORDERS.forEach(o=>{const c=o.delivery.address.city;cityCount[c]=(cityCount[c]||0)+1});
+const maxCity=Math.max(...Object.values(cityCount));
+const cityEl=document.getElementById('cityBars');
+const colors=['#00e5ff','#22d3a4','#a78bfa','#ff6b35'];
+Object.entries(cityCount).sort((a,b)=>b[1]-a[1]).forEach(([city,cnt],i)=>{
+  cityEl.innerHTML+=`<div class="bar-item">
+    <div class="bar-info"><span class="bar-name">${city}</span><span class="bar-num">${cnt} зак.</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${cnt/maxCity*100}%;background:${colors[i%4]}"></div></div>
+  </div>`;
+});
+
+// ── PRODUCT BARS ──
+const prodCount={};
+ORDERS.forEach(o=>o.items.forEach(i=>{
+  const k=i.productName.replace('Корректирующее ','').replace('Утягивающий ','').replace('Утягивающие ','').replace('Бюстье ','');
+  prodCount[k]=(prodCount[k]||0)+i.quantity;
+}));
+const maxProd=Math.max(...Object.values(prodCount));
+const prodEl=document.getElementById('productBars');
+Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([prod,cnt],i)=>{
+  prodEl.innerHTML+=`<div class="bar-item">
+    <div class="bar-info"><span class="bar-name" style="font-size:11px">${prod}</span><span class="bar-num">${cnt} шт.</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${cnt/maxProd*100}%;background:${colors[i%4]}"></div></div>
+  </div>`;
+});
+
+// ── TABLE ──
+let currentFilter='all';
+function filterTable(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+function renderTable(){
+  let filtered=ORDERS;
+  if(currentFilter==='big') filtered=ORDERS.filter(o=>o.total>50000);
+  if(currentFilter==='instagram') filtered=ORDERS.filter(o=>o.customFields.utm_source==='instagram');
+
+  const sorted=[...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const body=document.getElementById('ordersTableBody');
+  body.innerHTML=sorted.map((o,i)=>{
+    const src=o.customFields.utm_source;
+    const isHigh=o.total>50000;
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${o.firstName} ${o.lastName}</td>
+      <td>${o.delivery.address.city}</td>
+      <td><span class="src-tag src-${src}">${src}</span></td>
+      <td><span class="status-badge status-new">new</span></td>
+      <td style="text-align:right" class="${isHigh?'high-value':''}">${o.total.toLocaleString('ru')} ₸</td>
+    </tr>`;
+  }).join('');
+}
+renderTable();
+</script>
+</body>
+</html>

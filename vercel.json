@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "dashboard/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "telegram-bot/webhook.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/api/webhook", "dest": "telegram-bot/webhook.js" },
+    { "src": "/(.*)", "dest": "dashboard/index.html" }
+  ],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
+    "TELEGRAM_CHAT_ID": "@telegram_chat_id",
+    "RETAILCRM_URL": "@retailcrm_url",
+    "RETAILCRM_API_KEY": "@retailcrm_api_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
+  }
+}

@@ -11,7 +11,7 @@
  *   RETAILCRM_URL        – for polling mode
  *   RETAILCRM_API_KEY    – for polling mode
  */
-
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const https = require("https");
 const url = require("url");
 
@@ -49,7 +49,7 @@ function formatOrder(order) {
     0
   );
   const items = (order.items || [])
-    .map((i) => `  • ${i.productName} × ${i.quantity} = ${(i.initialPrice * i.quantity).toLocaleString("ru")} ₸`)
+    .map((i) => `  • ${i.offer?.name || i.productName || 'Товар'} × ${i.quantity} = ${(i.initialPrice * i.quantity).toLocaleString("ru")} ₸`)
     .join("\n");
   const city = order.delivery?.address?.city || "—";
   const src = order.customFields?.utm_source || "—";
